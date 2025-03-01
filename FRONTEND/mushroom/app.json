@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "MushroomGrowthTracker",
+    "slug": "ByteSized",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "newArchEnabled": true,
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "googleServicesFile" : "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.brruhyan.ByteSized"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.25",
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 34,
+            "buildFeatures": {
+              "compose": true
+            },
+            "composeOptions": {
+              "kotlinCompilerExtensionVersion": "1.5.15"
+            },
+            "kotlinOptions": {
+              "jvmTarget": "19"
+            }
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ca430df5-781d-4480-8c77-f0c486439a2a"
+      }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "581657780438",
+    "project_id": "pd2push",
+    "storage_bucket": "pd2push.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:581657780438:android:e63485b2e9f81e30dc2977",
+        "android_client_info": {
+          "package_name": "com.brruhyan.ByteSized"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkHZZYsnNdin8skfa6Q9WaOtrGZzrx1K4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
