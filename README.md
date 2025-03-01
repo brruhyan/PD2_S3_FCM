@@ -4,4 +4,5 @@ Before proceeding, make sure to do the following:
 
 1. Go to ShowCameraFeed file and enter the keys.
 2. Go to RASPI_BACKEND_NODE/index.js and enter the keys.
-3. Go to Drive link (https://drive.google.com/drive/folders/1qKFN8sJNrQTBuF0WjQ8WAEmtofqQxDXJ?usp=sharing), download the file, and place inside RASPI_BACKEND_NODE/node_modules folder.
+3. Go to Drive link ()download the file, and place inside RASPI_BACKEND_NODE
+4. Obtain Credentials from Firebase and Add it to the root directory (inside mushroom folder). Follow this for reference: https://www.youtube.com/watch?v=yCBecuxzUuU&ab_channel=BugNinza
