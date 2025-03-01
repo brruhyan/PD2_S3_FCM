@@ -14,6 +14,7 @@ import NotificationScreen from './screens/NotificationScreen';
 import { StatusBar } from "expo-status-bar";
 import messaging from "@react-native-firebase/messaging";
 import { ConstructionOutlined } from '@mui/icons-material';
+import axios from 'axios';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -121,16 +122,34 @@ export default function App() {
     }
   };
 
+  // Send Token to Backend Server
+  const sendTokenToServer = async (token) => {
+    try {
+      // Replace this with WIFI IP Address
+      const response = await axios.post('http://x.x.x.x:8000/api/store-token', { 
+        token: token,
+      });
+  
+      console.log('Token sent to server:', response.data);
+    } catch (error) {
+      console.error('Error sending token:', error);
+    }
+  };
+  
+  // Retrieve FCM Token
   useEffect(() => {
     if (requestUserPermission()){
       messaging()
       .getToken()
       .then((token) => {
-        console.log(token);
+        console.log('FCM Push Token', token);
+        sendTokenToServer(token); // Send token to Raspberry Pi Backend
+        
       });
     } else{
       console.log('Permission Granted', authStatus);
     }
+  
 
     // Check Whether an Initial Notification is Available
     messaging()
@@ -152,7 +171,7 @@ export default function App() {
       );
     });
 
-    // Register Background Handler
+    // Receive notifications even if app is not foregrounded
     messaging().setBackgroundMessageHandler(async(remoteMessage) => {
       console.log('Messaging Handled in the Background', remoteMessage);
     });
