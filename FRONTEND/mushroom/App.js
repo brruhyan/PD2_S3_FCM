@@ -1,3 +1,4 @@
+// Frontend Libraries
 import React, { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -12,9 +13,18 @@ import { InferenceResultsProvider } from './contexts/InferenceResultsContext';
 import { UserProvider } from './contexts/UserContext';
 import NotificationScreen from './screens/NotificationScreen';
 import { StatusBar } from "expo-status-bar";
+
+// Notification Libraries
 import messaging from "@react-native-firebase/messaging";
-import { ConstructionOutlined } from '@mui/icons-material';
 import axios from 'axios';
+
+// AWS Libraries
+import AWS from 'aws-sdk';
+const s3 = new AWS.S3({
+  accessKeyId: "x",
+  secretAccessKey: "x,
+  region: "ap-southeast-1"
+});
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -111,7 +121,7 @@ function MainStackNavigator({ isLoggedIn, setIsLoggedIn }) {
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
-  const requestUserPermission = async () =>{
+  const requestUserPermission = async () => {
     const authStatus = await messaging().requestPermission();
     const enabled = 
       authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
@@ -121,65 +131,93 @@ export default function App() {
       console.log('Authorization Status', authStatus);
     }
   };
+  
+  /* To be Implemented - Upload a unique token to the tokens folder in s3 bucket for each device.
+  const uploadTokenToS3 = async (token) => {
+    const uniqueKey = `tokens/${token}.json`;
 
-  // Send Token to Backend Server
-  const sendTokenToServer = async (token) => {
+    const params = {
+        Bucket: "projectdesign-mushroom-bucket",
+        Key: uniqueKey,
+        Body: JSON.stringify({ token }),
+        ContentType: "application/json",
+    };
+
     try {
-      // Replace this with WIFI IP Address
-      const response = await axios.post('http://x.x.x.x:8000/api/store-token', { 
-        token: token,
-      });
-  
-      console.log('Token sent to server:', response.data);
+        await s3.upload(params).promise();
+        console.log("Token uploaded to S3 successfully:", uniqueKey);
     } catch (error) {
-      console.error('Error sending token:', error);
+        console.error("Error uploading token to S3:", error);
     }
+}; */
+
+  // Function to upload FCM token to AWS S3
+  const uploadTokenToS3 = async (token) => {
+    const params = {
+      Bucket: "x",
+      Key: "tokens.json",
+      Body: JSON.stringify({ token }),
+      ContentType: "application/json",
   };
-  
-  // Retrieve FCM Token
+
+  try {
+      await s3.upload(params).promise();
+      console.log("Token uploaded to S3 successfully");
+  } catch (error) {
+      console.error("Error uploading token to S3:", error);
+  }
+};
+
+
+  // Retrieve FCM Token and Handle Notifications
   useEffect(() => {
     if (requestUserPermission()){
       messaging()
       .getToken()
       .then((token) => {
         console.log('FCM Push Token', token);
-        sendTokenToServer(token); // Send token to Raspberry Pi Backend
-        
+        uploadTokenToS3(token); // Send token to S3 Bucket
       });
     } else{
-      console.log('Permission Granted', authStatus);
+      console.log('Permission Denied');
     }
   
-
-    // Check Whether an Initial Notification is Available
+    // Handle when a notification opens the app from a quit state
     messaging()
-     .getInitialNotification()
-     .then(async(remoteMessage)=>{
-      if(remoteMessage){
-        console.log(
-          "Notification Opened App from QUIT STATE",
-          remoteMessage.notification
-        );
-      }
-     });
+      .getInitialNotification()
+      .then(async (remoteMessage) => {
+        if (remoteMessage) {
+          console.log(
+            "Notification Opened App from QUIT STATE",
+            remoteMessage.notification
+          );
+          Alert.alert(
+            remoteMessage.notification?.title || "New Notification",
+            remoteMessage.notification?.body || "You have a new message!"
+          );
+        }
+      });
 
-     // Assume the Notification Contains a 'TYPE' Property
-     messaging().onNotificationOpenedApp((remoteMessage) => {
+    // Handle when a notification opens the app from the background
+    messaging().onNotificationOpenedApp((remoteMessage) => {
       console.log(
         'Notification Caused App to Open from Background',
         remoteMessage.notification
       );
+      Alert.alert(
+        remoteMessage.notification?.title || "New Notification",
+        remoteMessage.notification?.body || "You have a new message!"
+      );
     });
 
-    // Receive notifications even if app is not foregrounded
-    messaging().setBackgroundMessageHandler(async(remoteMessage) => {
-      console.log('Messaging Handled in the Background', remoteMessage);
+    // Handle foreground notifications (when app is open)
+    const unsubscribe = messaging().onMessage(async (remoteMessage) => {
+      Alert.alert(
+        remoteMessage.notification?.title || "New Notification",
+        remoteMessage.notification?.body || "You have a new message!"
+      );
     });
 
-    const unsubscribe = messaging().onMessage(async(remoteMessage) => {
-      Alert.alert('Notification Received!', JSON.stringify(remoteMessage));
-    });
-    
     return unsubscribe;
   }, []);
     
