@@ -21,8 +21,8 @@ import axios from 'axios';
 // AWS Libraries
 import AWS from 'aws-sdk';
 const s3 = new AWS.S3({
-  accessKeyId: "x",
-  secretAccessKey: "x,
+  accessKeyId: "",
+  secretAccessKey: "",
   region: "ap-southeast-1"
 });
 
@@ -132,8 +132,8 @@ export default function App() {
     }
   };
   
-  /* To be Implemented - Upload a unique token to the tokens folder in s3 bucket for each device.
-  const uploadTokenToS3 = async (token) => {
+  // I
+  const uploadTokenToS3Folder = async (token) => {
     const uniqueKey = `tokens/${token}.json`;
 
     const params = {
@@ -149,12 +149,12 @@ export default function App() {
     } catch (error) {
         console.error("Error uploading token to S3:", error);
     }
-}; */
+}; 
 
   // Function to upload FCM token to AWS S3
   const uploadTokenToS3 = async (token) => {
     const params = {
-      Bucket: "x",
+      Bucket: "projectdesign-mushroom-bucket",
       Key: "tokens.json",
       Body: JSON.stringify({ token }),
       ContentType: "application/json",

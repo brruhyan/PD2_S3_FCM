@@ -36,6 +36,7 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# Secrets
-.json
-pd2push-firebase-adminsdk-fbsvc-19b5fed1d4.json
+# files with secret keys
+./firebase-admin.js
+./google-service.json
+./pd2push-firebase-adminsdk-fbsvc-19b5fed1d4.json

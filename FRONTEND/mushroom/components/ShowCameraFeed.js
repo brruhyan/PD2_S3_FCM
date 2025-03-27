@@ -13,7 +13,7 @@ function ShowCameraFeed({ onInferenceResults }) {
   const takePhoto = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://192.168.1.17:3000/takePhoto`); // Update with correct IP (local)
+      const response = await axios.get(`http://192.168.100.158:3000/takePhoto`); // Update with correct IP (local)
   
       if (response.status === 200) {
         const { image, inferenceResults } = response.data;
@@ -64,9 +64,9 @@ function ShowCameraFeed({ onInferenceResults }) {
 
   const getClassStyles = (predictionClass) => {
     switch (predictionClass) {
-      case 'Ready':
+      case 'READY':
         return { borderColor: '#48D38A', backgroundColor: '#48D38A' };
-      case 'Not-Ready':
+      case 'NOT_READY':
         return { borderColor: '#FFD700', backgroundColor: '#FFD700' };
       case 'Overdue':
         return { borderColor: '#FF0000', backgroundColor: '#FF0000' };

@@ -20,9 +20,9 @@ function Summary({ inferenceResults }) {
       };
   
       inferenceResults.forEach(detection => {
-        if (detection?.class === "Ready") {
+        if (detection?.class === "READY") {
           counts.Ready += 1;
-        } else if (detection?.class === "Not-Ready") {
+        } else if (detection?.class === "NOT_READY") {
           counts['Not Ready'] += 1;
         } else if (detection?.class === "Overdue") {
           counts.Overdue += 1;
