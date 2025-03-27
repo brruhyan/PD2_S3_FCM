@@ -4,7 +4,7 @@ import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } f
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCBqVBLtnPReMJwvtYpVJ1hiRVpzJsvC1c",
+  apiKey: "", // Add Firebase API Key
   authDomain: "mushroom-monitoring-app.firebaseapp.com",
   projectId: "mushroom-monitoring-app",
   storageBucket: "mushroom-monitoring-app.firebasestorage.app",
