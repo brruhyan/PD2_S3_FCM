@@ -12,8 +12,8 @@ const options = {
   host: 'x',
   port: 8883,
   protocol: 'mqtts',
-  username: 'project-design2', // subscribe and publish
-  password: 'Team57ByteSize'
+  username: 'x', // subscribe and publish
+  password: 'x'
 }
 
 const s3Client = new S3Client({
