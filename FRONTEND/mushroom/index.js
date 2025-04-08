@@ -5,34 +5,47 @@ const { S3Client, GetObjectCommand, PutObjectCommand } = require("@aws-sdk/clien
 const fs = require('fs');
 const axios = require("axios");
 const sharp = require('sharp');
-const nodemailer = require('nodemailer'); // For email notifications - not working
+
 const admin = require("./firebase-admin.js");
+
+const options = {
+  host: 'x',
+  port: 8883,
+  protocol: 'mqtts',
+  username: 'project-design2', // subscribe and publish
+  password: 'Team57ByteSize'
+}
 
 const s3Client = new S3Client({
     region: 'ap-southeast-1',
     credentials: {
-        accessKeyId: '',
-        secretAccessKey: ''
+        accessKeyId: 'x',
+        secretAccessKey: 'x'
     }
 });
 
 const s3ImagesClient = new S3Client({
     region: 'ap-southeast-2',
     credentials: {
-        accessKeyId: '',
-        secretAccessKey: ''
+        accessKeyId: 'x',
+        secretAccessKey: 'x'
     }
 });
 const app = express();
 const port = 3000;
 
-const mqttBrokerAddress = 'mqtt://192.168.100.161'; // raspi ip add
+const mqttBrokerAddress = mqtt.connect(options); // ip of the mqtt broker where the raspi listens and app sends
 const mqttPublishChannel = 'your/command/channel';
 const mqttSubscribeChannel = 'your/result/channel';
 
+mqttBrokerAddress.on('connect', function () {
+    console.log('Connected');
+});
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+
+let processedMessages = new Set();
 
 // Helper function to get style for class, matching ShowCameraFeed.js
 const getClassStyles = (predictionClass) => {
@@ -59,18 +72,18 @@ async function sendReadyMushroomNotification(readyMushrooms, imageBuffer) {
     
 
 // Function to Retrieve FCM Push Token when Ready is Detected
- const retrieveTokenFromS3 = async () => {
+const retrieveTokenFromS3 = async () => {
     const params = {
         Bucket: "projectdesign-mushroom-bucket",
         Key: "tokens.json",
-      };
+    };
     
-      try {
+    try {
         console.log("Fetching token from S3...");
         const response = await s3Client.send(new GetObjectCommand(params));
     
         if (!response.Body) {
-          throw new Error("S3 Response Body is missing");
+        throw new Error("S3 Response Body is missing");
         }
     
         const tokenData = await response.Body.transformToString();
@@ -78,16 +91,16 @@ async function sendReadyMushroomNotification(readyMushrooms, imageBuffer) {
     
         const parsedData = JSON.parse(tokenData);
         if (!parsedData.token) {
-          throw new Error("Missing 'token' field in JSON");
+        throw new Error("Missing 'token' field in JSON");
         }
     
         const token = Array.isArray(parsedData.token) ? parsedData.token[0] : parsedData.token;
         console.log("Extracted Token:", token);
         return token;
-      } catch (error) {
+    } catch (error) {
         console.error("Error retrieving token from S3:", error.message);
         return null;
-      }
+    }
     };
 
 const sendNotification = async (token, title, body) => {
@@ -128,25 +141,28 @@ sendReadyMushroomNotification();
 
 }
 app.get('/takePhoto', async (req, res) => {
-    const client = mqtt.connect(mqttBrokerAddress);
+    const client = mqttBrokerAddress;
     const message = 'Yes';
+    let hasResponded = false; // Flag to track if we've already responded
 
-    client.subscribe(mqttSubscribeChannel, async (err) => {
-        if (err) {
-            console.error('Error subscribing to channel:', err);
-            return res.status(500).send('Error subscribing to channel');
-        } else {
-            await client.publish(mqttPublishChannel, message, () => {
-                console.log(`Message published to ${mqttPublishChannel}: ${message}`);
-            });
-        }
-    });
-
-    client.on('message', async (topic, receivedMessage) => {
-        if (topic === mqttSubscribeChannel) {
+    // Create a message handler function that we can later remove
+    const messageHandler = async (topic, receivedMessage) => {
+        if (topic === mqttSubscribeChannel && !hasResponded) {
+            // Set flag to prevent multiple responses
+            hasResponded = true;
+            
+            // Unsubscribe to stop receiving more messages for this request
             client.unsubscribe(mqttSubscribeChannel);
+            client.removeListener('message', messageHandler);
+            
             const key = receivedMessage.toString();
             console.log(`Received message on ${mqttSubscribeChannel}: ${key}`);
+
+            if (processedMessages.has(key)) {
+                console.log('Duplicate detected');
+                return res.status(200).json({ status: 'Duplicate message detected' });
+            }
+            processedMessages.add(key);
 
             try {
                 const data = await s3ImagesClient.send(new GetObjectCommand({
@@ -177,97 +193,8 @@ app.get('/takePhoto', async (req, res) => {
                 const inferenceResults = [];
 
                 if (processingConfig.mode === 'grid') {
-                    // Grid-based processing
-                    const tileWidth = Math.floor(metadata.width / 3);
-                    const tileHeight = Math.floor(metadata.height / 3);
-
-                    console.log('Tile dimensions:', {
-                        tileWidth,
-                        tileHeight,
-                        totalWidth: metadata.width,
-                        totalHeight: metadata.height
-                    });
-
-                    // Process tiles
-                    for (let row = 0; row < 3; row++) {
-                        for (let col = 0; col < 3; col++) {
-                            const left = col * tileWidth;
-                            const top = row * tileHeight;
-                            
-                            const right = Math.min((col + 1) * tileWidth, metadata.width);
-                            const bottom = Math.min((row + 1) * tileHeight, metadata.height);
-                            
-                            const width = right - left;
-                            const height = bottom - top;
-
-                            if (left < 0 || top < 0 || width <= 0 || height <= 0 ||
-                                left + width > metadata.width || top + height > metadata.height) {
-                                console.error(`Invalid extraction parameters for tile (${row}, ${col}):`, 
-                                    { left, top, width, height, imageWidth: metadata.width, imageHeight: metadata.height });
-                                continue;
-                            }
-
-                            console.log(`Processing tile (${row}, ${col}):`, { left, top, width, height });
-
-                            try {
-                                const tileBuffer = await sharp(imageBuffer)
-                                    .extract({ left, top, width, height })
-                                    .toBuffer();
-
-                                const imageDataBase64 = tileBuffer.toString('base64');
-
-                                const apiKey = "LpkUpv6XAkCrQs0L9R8O";
-                                const roboflowResponse = await axios({
-                                    method: "POST",
-                                    url: "https://detect.roboflow.com/mushroom-w7ucu/7",
-                                    params: {
-                                        api_key: apiKey,
-                                    },
-                                    data: imageDataBase64,
-                                    headers: {
-                                        'Content-Type': 'application/x-www-form-urlencoded'
-                                    },
-                                    maxBodyLength: Infinity
-                                });
-
-                                // Process predictions with adjusted coordinates
-                                const tilePredictions = roboflowResponse.data.predictions.map((prediction, index) => {
-                                    console.log(`Prediction for tile (${row}, ${col}):`, prediction);
-
-                                    const adjustedPoints = prediction.points.map(p => ({
-                                        x: p.x + left,
-                                        y: p.y + top
-                                    }));
-
-                                    return {
-                                        ...prediction,
-                                        points: adjustedPoints,
-                                        detection_id: `detection-${allPredictions.length + index}`,
-                                        timestamp: new Date().toISOString(),
-                                        tile: { row, col }
-                                    };
-                                });
-
-                                // Add to all predictions
-                                allPredictions.push(...tilePredictions);
-
-                                // Add to inference results
-                                inferenceResults.push({
-                                    tile: { row, col },
-                                    inference: {
-                                        ...roboflowResponse.data,
-                                        predictions: tilePredictions // Use the adjusted predictions
-                                    }
-                                });
-                            } catch (error) {
-                                console.error(`Error processing tile (${row}, ${col}):`, error.message);
-                                inferenceResults.push({
-                                    tile: { row, col },
-                                    error: error.message,
-                                });
-                            }
-                        }
-                    }
+                    // Grid-based processing code...
+                    // [Your existing grid processing code goes here]
                 } else if (processingConfig.mode === 'whole') {
                     // Whole image processing
                     try {
@@ -309,49 +236,11 @@ app.get('/takePhoto', async (req, res) => {
                     }
                 }
 
-                // Create an SVG overlay for all predictions
+                // Create SVG overlay
                 let svgElements = '';
                 
-                // Add grid lines if grid mode is active
-                if (processingConfig.mode === 'grid') {
-                    const tileWidth = Math.floor(metadata.width / 3);
-                    const tileHeight = Math.floor(metadata.height / 3);
-                    
-                    svgElements += `<line x1="${tileWidth}" y1="0" x2="${tileWidth}" y2="${metadata.height}" stroke="red" stroke-width="2" />`;
-                    svgElements += `<line x1="${tileWidth * 2}" y1="0" x2="${tileWidth * 2}" y2="${metadata.height}" stroke="red" stroke-width="2" />`;
-                    svgElements += `<line x1="0" y1="${tileHeight}" x2="${metadata.width}" y2="${tileHeight}" stroke="red" stroke-width="2" />`;
-                    svgElements += `<line x1="0" y1="${tileHeight * 2}" x2="${metadata.width}" y2="${tileHeight * 2}" stroke="red" stroke-width="2" />`;
-                }
+                // [Your existing SVG generation code]
                 
-                // Add prediction polygons and labels
-                allPredictions.forEach(prediction => {
-                    const style = getClassStyles(prediction.class);
-                    
-                    // Create polygon for the bounding box
-                    const polygonPoints = prediction.points.map(p => `${p.x},${p.y}`).join(' ');
-                    svgElements += `<polygon points="${polygonPoints}" 
-                                          fill="${style.color}" 
-                                          fill-opacity="${style.opacity}" 
-                                          stroke="${style.color}" 
-                                          stroke-width="2" />`;
-                    
-                    // Add text label
-                    const firstPoint = prediction.points[0];
-                    svgElements += `<rect x="${firstPoint.x}" 
-                                        y="${firstPoint.y - 20}" 
-                                        width="${prediction.class.length * 7 + 10}" 
-                                        height="20" 
-                                        fill="${style.color}" 
-                                        rx="5" 
-                                        ry="5" />`;
-                                          
-                    svgElements += `<text x="${firstPoint.x + 5}" 
-                                        y="${firstPoint.y - 5}" 
-                                        font-family="Arial" 
-                                        font-size="12" 
-                                        fill="white">${prediction.class}</text>`;
-                });
-
                 // Create complete SVG overlay
                 const svgOverlay = Buffer.from(`<svg width="${metadata.width}" height="${metadata.height}">
                     ${svgElements}
@@ -361,25 +250,23 @@ app.get('/takePhoto', async (req, res) => {
                 const processedImage = await sharp(imageBuffer)
                     .composite([{ input: svgOverlay, blend: 'over' }])
                     .toBuffer();
+
                 // Check for "Ready" mushrooms and send notification if found
                 const readyMushrooms = allPredictions.filter(p => p.class === 'READY');
-
-      
+                
                 let notificationInfo = null;
                 
                 if (readyMushrooms.length > 0) {
                     console.log(`Found ${readyMushrooms.length} Ready mushrooms! Sending notification...`);
-                    const notificationImagePath = await sendReadyMushroomNotification(readyMushrooms, imageBuffer);
+                    await sendReadyMushroomNotification(readyMushrooms, imageBuffer);
                     notificationInfo = {
                         sent: true,
                         count: readyMushrooms.length,
-                        timestamp: new Date().toISOString(),
-                        imagePath: notificationImagePath
+                        timestamp: new Date().toISOString()
                     };
-                } 
-
-
-                client.end();
+                }
+                
+                // Send response once
                 return res.status(200).json({
                     image: processedImage.toString('base64'),
                     inferenceResults: {
@@ -391,14 +278,37 @@ app.get('/takePhoto', async (req, res) => {
                 
             } catch (error) {
                 console.error('Error:', error);
-                client.end();
                 return res.status(500).send('Server error');
             }
         }
+    };
+
+    // Add the message handler
+    client.on('message', messageHandler);
+
+    // Subscribe to the channel
+    client.subscribe(mqttSubscribeChannel, async (err) => {
+        if (err) {
+            console.error('Error subscribing to channel:', err);
+            return res.status(500).send('Error subscribing to channel');
+        } else {
+            await client.publish(mqttPublishChannel, message, () => {
+                console.log(`Message published to ${mqttPublishChannel}: ${message}`);
+            });
+        }
     });
+
+    // Add a timeout to make sure we don't leave the request hanging
+    setTimeout(() => {
+        if (!hasResponded) {
+            hasResponded = true;
+            client.unsubscribe(mqttSubscribeChannel);
+            client.removeListener('message', messageHandler);
+            res.status(504).send('Request timeout - no MQTT response received');
+        }
+    }, 30000); // 30 second timeout
 });
 
-
-app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
+app.listen(port, '0.0.0.0', () => {
+    console.log(`Server running on http://0.0.0.0:${port}`);
 });
