@@ -13,7 +13,7 @@ function ShowCameraFeed({ onInferenceResults }) {
   const takePhoto = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://192.168.100.158:3000/takePhoto`); // Update with correct IP (local)
+      const response = await axios.get(`http://10.147.20.61:3000/takePhoto`); // Update with correct IP (local)
   
       if (response.status === 200) {
         const { image, inferenceResults } = response.data;
